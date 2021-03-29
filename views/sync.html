@@ -1,0 +1,96 @@
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>The fourth lab work by Vorokhta Alisa</title>
+    </head>
+    <body>
+        <h2>CURRENT TIME:</h2>
+        <p id = "time"></p>
+        <button onclick="synchronize()">Synchronize with the server</button>
+        <script>
+
+            function getServerTime() {
+                return fetch('/time_request', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => data['time'])
+            }
+
+            async function sync() {
+                let startTime = new Date().getTime()
+                let serverTime = await getServerTime()
+                let latency = (new Date().getTime() - startTime) / 2
+                return [serverTime, latency]
+            }
+
+            function mean(array) {
+                let sum = 0
+                let len = array.length
+                for (let i = 0; i < len; i++) {
+                    sum += array[i]
+                }
+                return sum / len
+            }
+
+            function std(array) {
+                let mean = mean(array)
+                let sum = 0
+                let len = array.length
+                for (let i = 0; i < len; i++) {
+                    sum += Math.pow(array[i] - mean, 2)
+                }
+                return Math.sqrt(sum / (len - 1))
+            }
+
+            async function synchronize() {
+                let step = await sync()
+                let serverTime = step[0]
+                let latency = step[1]
+
+                let date = new Date(serverTime + latency)
+                document.getElementById("time").innerText = date.toTimeString()
+
+                let latencies = [latency]
+                let i = 1
+                let requests = 7
+                let delay = 3000
+
+                setTimeout(async function check() {
+                    i += 1
+
+                    let step = await sync()
+                    let latency = step[1]
+                    latencies.push(latency)
+
+                    if (i < requests) {
+                        setTimeout(check, delay)
+                    }
+
+                    else {
+                        latencies.sort()
+                        let len = latencies.length
+                        let mid = Math.ceil(len / 2)
+                        let median = (latencies[mid] + latencies[mid - 1]) / 2
+                        let std = std(latencies)
+                        let low_latencies = []
+
+                        for (let j = 0; j < latencies.length; j++) {
+                            if (median - std <= latencies[j] && latencies[j] <= median + std) {
+                                low_latencies.push(latencies[j])
+                            }
+                        }
+
+                        let meanLatency = mean(low_latencies)
+                        let date = new Date(serverTime + meanLatency)
+                        document.getElementById("time").innerText = date.toTimeString()
+                    }
+                }, delay)
+            }
+
+        </script>
+    </body>
+</html>
